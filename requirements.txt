@@ -1,0 +1,14 @@
+streamlit
+streamlit-pdf-viewer
+pypdf
+ollama
+streamlit[pdf]
+dotenv
+langchain
+langchain-chroma
+langchain-text-splitters
+langchain-community
+langchain_ollama
+chromadb
+pytest
+boto3
