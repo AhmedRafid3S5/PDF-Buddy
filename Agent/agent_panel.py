@@ -70,7 +70,7 @@ def render_agent_panel():
         if "agent_end_page" not in st.session_state:
             st.session_state.agent_end_page = current_page
 
-        start_col, end_col, apply_col = st.columns([1, 1, 0.7], gap="small")
+        start_col, end_col = st.columns([1, 1], gap="small")
 
         with start_col:
             st.number_input(
@@ -88,21 +88,11 @@ def render_agent_panel():
                 key="agent_end_page",
             )
 
-        with apply_col:
-            st.write("")
-            st.write("")
-            apply_page_range = st.button("Apply", use_container_width=True)
+       
     else:
         apply_page_range = False
 
-    if apply_page_range:
-        start_page = int(st.session_state.agent_start_page)
-        end_page = int(st.session_state.agent_end_page)
-        if start_page > end_page:
-            st.error("Start page must be less than or equal to end page.")
-        else:
-            st.session_state.ai_agent_output = summarize_pages_from(start_page, end_page)
-            st.toast("Page range applied.")
+
 
     agent_prompt = st.text_area(
         "Prompt",

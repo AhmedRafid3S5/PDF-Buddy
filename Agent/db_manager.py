@@ -62,29 +62,36 @@ def add_to_chroma(chunks: list[Document]) -> None:
         embedding_function=get_embedding_function(),
     )
 
-    #Calculate chunk IDs and append that info as attribute to chunk object
+    # Calculate chunk IDs and append that info to each chunk's metadata.
     chunks_with_ids = calculate_chunk_ids(chunks)
 
-    #add of update documents
-    existing_items = db.get(include=[])
-    existing_ids = set(existing_items["ids"])
+    # Collect all candidate IDs.
+    chunk_ids = [chunk.metadata["id"] for chunk in chunks_with_ids]
+
+    # Check which of these IDs already exist in the DB, in batches.
+    existing_ids: set[str] = set()
+    batch_size = 1000
+    for start in range(0, len(chunk_ids), batch_size):
+        batch_ids = chunk_ids[start : start + batch_size]
+        existing_items = db.get(ids=batch_ids, include=[])
+        existing_ids.update(existing_items.get("ids", []))
+
     print(f"Number of existing documents in DB: {len(existing_ids)}")
 
-    new_chunks: list[Document] = [] # enforce variable type using : list[Document]
-    for chunk in chunks_with_ids:
-        if chunk.metadata["id"] not in existing_ids:
-            new_chunks.append(chunk) #only add to list of new chunks if chunk not already in the database
+    # Filter out chunks whose IDs are already present.
+    new_chunks: list[Document] = [
+        chunk for chunk in chunks_with_ids
+        if chunk.metadata["id"] not in existing_ids
+    ]
 
-    #check if new_chunks list has elements, then add them to db, finally log them
     if new_chunks:
         print(f"👉 Adding new documents: {len(new_chunks)}")
-        new_chunks_ids = [chunk.metadata["id"] for chunk in new_chunks]
-        db.add_documents(new_chunks, id=new_chunks_ids)
-        #db.persist() # may not be required for this usecase
-
+        new_chunk_ids = [chunk.metadata["id"] for chunk in new_chunks]
+        # REMEMBER : ids is the correct arg, not id
+        db.add_documents(documents=new_chunks, ids=new_chunk_ids)
+        # db.persist()  # enable if you want to persist after each run
     else:
         print("✅ No new documents to add")
-
     
 def calculate_chunk_ids(chunks: list[Document]) -> list[Document]:
     """
