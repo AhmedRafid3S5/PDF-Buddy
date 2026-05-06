@@ -12,3 +12,4 @@ langchain_ollama
 chromadb
 pytest
 boto3
+pymupdf

@@ -52,6 +52,7 @@ def render_agent_panel():
     current_page = PDFUtils.get_current_page()
     max_pages = PDFUtils.get_total_pages()
 
+    st.markdown("<div style=\"margin-top:0.5rem;\"></div>", unsafe_allow_html=True)
     st.markdown("### AI Agent")
     st.selectbox(
         "Task",

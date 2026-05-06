@@ -1,6 +1,8 @@
 import streamlit as st
 import io
 from pypdf import PdfReader, PdfWriter
+from Utils.image_encoder import pdf_pages_to_images
+import json
 import os
 
 try:
@@ -53,6 +55,16 @@ class PDFUtils:
         with open(output_path, "wb") as output_file:
             writer.write(output_file)
 
+        #keep a base64 image copy of the splitted pdf, saved to 
+        images = pdf_pages_to_images(output_path, 1, end_page - start_page + 1)
+        page_map = {}
+        for idx, img_b64 in enumerate(images, start=1):
+            page_map[str(idx)] = img_b64
+        
+        sidecar_path = output_path.replace(".pdf", ".pages.json")
+        with open(sidecar_path, "w", encoding="utf-8") as f:
+             json.dump(page_map, f)
+        
         return output_path
 
     @staticmethod
@@ -263,6 +275,7 @@ class PDFUtils:
                     scroll_behavior="instant",
                     zoom_level=zoom_level,
                     show_page_separator=False,
+                    render_text=True,  # <-- enable selectable text
                 )
             else:
                 # Full document: NO pages_to_render, so all pages show as a scrollable stream.
