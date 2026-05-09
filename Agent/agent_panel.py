@@ -26,15 +26,21 @@ def summarize_pages_from(start_page, end_page):
     )
 
 
-def run_query_on_pages(start_page, end_page, query):
-    #current_page = PDFUtils.get_current_page()
+def run_query_on_pages(start_page, end_page, query, include_current_image=True):
+    current_page = PDFUtils.get_current_page()
     save_path = PDFUtils.split_pdf(start_page,end_page,save_dir)
     
     if save_path:
+        fallback_images = PDFUtils.get_page_images(current_page, current_page)
+        current_page_images = fallback_images if include_current_image else []
         documents = load_documents()
         chunks = split_documents(documents)
         add_to_chroma(chunks)
-        response_txt = query_rag(query)
+        response_txt = query_rag(
+            query,
+            extra_images=current_page_images,
+            fallback_images=fallback_images,
+        )
 
         return response_txt
     else:
@@ -101,6 +107,12 @@ def render_agent_panel():
         height=140,
     )
 
+    include_current_image = st.checkbox(
+        "Include current page image",
+        value=True,
+        help="Adds the current page image to the model context even if no text is extracted.",
+    )
+
     run_agent = st.button("Run agent", use_container_width=True)
     clear_agent = st.button("Clear output", use_container_width=True)
 
@@ -117,7 +129,9 @@ def render_agent_panel():
             else:
                 with output_area:
                     with st.spinner("Generating response..."):
-                        result = run_query_on_pages(start_page, end_page, prompt_text)
+                        result = run_query_on_pages(
+                            start_page, end_page, prompt_text, include_current_image
+                        )
                 if result:
                     st.session_state.ai_agent_output = result
                 else:
@@ -134,7 +148,9 @@ def render_agent_panel():
             else:
                 with output_area:
                     with st.spinner("Generating response..."):
-                        result = run_query_on_pages(start_page, end_page, prompt_text)
+                        result = run_query_on_pages(
+                            start_page, end_page, prompt_text, include_current_image
+                        )
                 if result:
                     st.session_state.ai_agent_output = result
                 else:

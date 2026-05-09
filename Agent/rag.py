@@ -13,6 +13,8 @@ pdf_dir_path = os.getenv("SAVE_DIR","Data")
 chroma_path = os.getenv("CHROMA_PATH")
 PROMPT_TEMPLATE = """
 Answer the question based only on the following context and any provided images.
+{image_note}
+If no text context is provided, rely on the images to answer. If any text and images provided do not talk about the same subject or topic, use the current page image (Image 1) to answer query.
 Respond in Markdown.
 
 {context}
@@ -45,7 +47,7 @@ def _build_metadata_hint(results: list[tuple]) -> str:
     return f"Metadata: pdf={sources_part}; pages={pages_part}"
 
 
-def query_rag(query_text: str) -> str:
+def query_rag(query_text: str, extra_images=None, fallback_images=None) -> str:
     embedding_function = get_embedding_function()
     
     #init in constructor after class creation
@@ -86,15 +88,44 @@ def query_rag(query_text: str) -> str:
             if image:
                 page_images.append(image)
 
+    all_images: list[str] = []
+    if extra_images:
+        all_images.extend(extra_images)
+
+    if results:
+        all_images.extend(page_images)
+    elif fallback_images:
+        all_images.extend(fallback_images)
+
     # Build context for the LLM.
     context_text = "\n\n---\n\n".join(
         [doc.page_content for doc, _score in results]
     )
+    if not context_text:
+        context_text = "(No relevant text retrieved.)"
+
+    # Preserve order while removing duplicates.
+    seen_images = set()
+    unique_images: list[str] = []
+    for image in all_images:
+        if image in seen_images:
+            continue
+        seen_images.add(image)
+        unique_images.append(image)
+    all_images = unique_images
 
     prompt_template = ChatPromptTemplate.from_template(PROMPT_TEMPLATE)
+    if all_images:
+        image_note = (
+            "Image 1 is the current page image. Images 2..N are additional pages in order."
+        )
+    else:
+        image_note = "No images were provided for this query."
+
     prompt = prompt_template.format(
         context=context_text,
         question=query_text,
+        image_note=image_note,
     )
 
     response = chat(
@@ -103,7 +134,7 @@ def query_rag(query_text: str) -> str:
             {
                 "role": "user",
                 "content": prompt,
-                "images": page_images,
+                "images": all_images,
             }
         ],
     )

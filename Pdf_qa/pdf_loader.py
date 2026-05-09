@@ -1,14 +1,18 @@
 import streamlit as st
 import io
+import base64
+import fitz
 from pypdf import PdfReader, PdfWriter
 from Utils.image_encoder import pdf_pages_to_images
 import json
 import os
 
+
 try:
     from streamlit_pdf_viewer import pdf_viewer
 except Exception:
     pdf_viewer = None
+
 
 
 class PDFUtils:
@@ -68,6 +72,39 @@ class PDFUtils:
         return output_path
 
     @staticmethod
+    def get_page_images(start_page, end_page, dpi=150):
+        pdf_bytes = st.session_state.get("pdf_bytes")
+        if not pdf_bytes:
+            st.toast("No pdf selected !!")
+            raise ValueError("No PDF loaded in st.session_state.pdf_bytes")
+
+        start_page = int(start_page)
+        end_page = int(end_page)
+        total_pages = PDFUtils.get_total_pages()
+
+        if start_page < 1:
+            st.toast("Invalid start page value")
+            raise ValueError("start_page must be at least 1")
+        if end_page < start_page:
+            st.toast("Invalid end page value")
+            raise ValueError("end_page must be greater than or equal to start_page")
+        if start_page > total_pages:
+            return []
+
+        last_page = min(end_page, total_pages)
+        images: list[str] = []
+        mat = fitz.Matrix(dpi / 72, dpi / 72)
+
+        with fitz.open(stream=pdf_bytes, filetype="pdf") as doc:
+            for page_index in range(start_page - 1, last_page):
+                page = doc.load_page(page_index)
+                pix = page.get_pixmap(matrix=mat)
+                img_bytes = pix.tobytes("jpeg")
+                images.append(base64.b64encode(img_bytes).decode("ascii"))
+
+        return images
+
+    @staticmethod
     @st.cache_data(show_spinner=False)
     def _read_pdf_structure(pdf_bytes):
         reader = PdfReader(io.BytesIO(pdf_bytes))
@@ -112,7 +149,7 @@ class PDFUtils:
 
     @staticmethod
     def pdf_viewer():
-        st.subheader("PDF Viewer")
+
    
         # --- Session state defaults ---
         if "pdf_bytes" not in st.session_state:
@@ -266,6 +303,29 @@ class PDFUtils:
             # Only pass pages_to_render in single-page mode, so in full mode
             # the component renders all pages by default [web:3].
             if st.session_state.pdf_render_mode == "Current page only (faster)":
+                nav_left, nav_center, nav_right = st.columns([1, 6, 1], gap="small")
+                with nav_left:
+                    if st.button("◀", key="viewer_prev"):
+                        st.session_state.pdf_current_page = max(
+                            1, int(st.session_state.pdf_current_page) - 1
+                        )
+                        st.rerun()
+
+                with nav_center:
+                    st.markdown(
+                        f"<div style=\"text-align:center;font-weight:600;\">"
+                        f"Page {int(st.session_state.pdf_current_page)} / {max_pages}"
+                        f"</div>",
+                        unsafe_allow_html=True,
+                    )
+
+                with nav_right:
+                    if st.button("▶", key="viewer_next"):
+                        st.session_state.pdf_current_page = min(
+                            max_pages, int(st.session_state.pdf_current_page) + 1
+                        )
+                        st.rerun()
+
                 pdf_viewer(
                     input=pdf_bytes,
                     width="100%",

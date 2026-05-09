@@ -36,13 +36,14 @@ def _get_dir_size(path: str) -> int:
     return total
 
 
-def _list_pdf_files(path: str) -> list[dict]:
+def _list_data_files(path: str) -> list[dict]:
     if not os.path.exists(path):
         return []
 
     entries: list[dict] = []
     for name in os.listdir(path):
-        if not name.lower().endswith(".pdf"):
+        lower_name = name.lower()
+        if not (lower_name.endswith(".pdf") or lower_name.endswith(".pages.json")):
             continue
         file_path = os.path.join(path, name)
         if not os.path.isfile(file_path):
@@ -51,12 +52,17 @@ def _list_pdf_files(path: str) -> list[dict]:
             stats = os.stat(file_path)
         except OSError:
             continue
+        if lower_name.endswith(".pdf"):
+            file_type = "pdf"
+        else:
+            file_type = "image_json"
         entries.append(
             {
                 "name": name,
                 "path": file_path,
                 "size": stats.st_size,
                 "modified": stats.st_mtime,
+                "type": file_type,
             }
         )
 
@@ -64,7 +70,15 @@ def _list_pdf_files(path: str) -> list[dict]:
     return entries
 
 
-def _delete_pdf(file_path: str) -> bool:
+def _delete_data_file(file_path: str, file_type: str) -> bool:
+    if file_type == "pdf":
+        sidecar_path = os.path.splitext(file_path)[0] + ".pages.json"
+        if os.path.exists(sidecar_path):
+            try:
+                os.remove(sidecar_path)
+            except OSError as exc:
+                st.error(f"Unable to delete image sidecar: {exc}")
+                return False
     try:
         os.remove(file_path)
     except OSError as exc:
@@ -74,13 +88,23 @@ def _delete_pdf(file_path: str) -> bool:
 
 
 def _render_file_row(file_item: dict):
-    icon_html = (
-        "<div style=\"font-weight:700;font-size:12px;"
-        "color:#0f172a;background:#dbeafe;border-radius:6px;"
-        "padding:4px 6px;display:inline-block;margin-bottom:6px;\">"
-        "PDF"
-        "</div>"
-    )
+    file_type = file_item.get("type", "pdf")
+    if file_type == "image_json":
+        icon_html = (
+            "<div style=\"font-weight:700;font-size:12px;"
+            "color:#0f172a;background:#dcfce7;border-radius:6px;"
+            "padding:4px 6px;display:inline-block;margin-bottom:6px;\">"
+            "IMG"
+            "</div>"
+        )
+    else:
+        icon_html = (
+            "<div style=\"font-weight:700;font-size:12px;"
+            "color:#0f172a;background:#dbeafe;border-radius:6px;"
+            "padding:4px 6px;display:inline-block;margin-bottom:6px;\">"
+            "PDF"
+            "</div>"
+        )
 
     name = file_item["name"]
     size = _format_bytes(int(file_item["size"]))
@@ -101,13 +125,13 @@ def _render_file_row(file_item: dict):
         st.caption(f"Size: {size}")
 
     with action_col:
-        if st.button("🗑️ Delete", key=f"delete_{name}"):
-            if _delete_pdf(file_item["path"]):
+        if st.button("🗑️ Delete", key=f"delete_{file_item['path']}"):
+            if _delete_data_file(file_item["path"], file_type):
                 st.success(f"Deleted {name}")
                 st.rerun()
 
 def _get_dir_mtime(path: str) -> float:
-    """Return the latest mtime among the directory itself and its PDF files."""
+    """Return the latest mtime among the directory itself and its data files."""
     if not os.path.exists(path):
         return 0.0
     try:
@@ -115,7 +139,8 @@ def _get_dir_mtime(path: str) -> float:
     except OSError:
         mtime = 0.0
     for name in os.listdir(path):
-        if not name.lower().endswith(".pdf"):
+        lower_name = name.lower()
+        if not (lower_name.endswith(".pdf") or lower_name.endswith(".pages.json")):
             continue
         try:
             mtime = max(mtime, os.path.getmtime(os.path.join(path, name)))
@@ -146,17 +171,17 @@ def render_management_panel():
         else:
             st.warning("Please confirm before clearing the cache.")
 
-    st.markdown("#### Stored PDFs")
+    st.markdown("#### Stored PDFs & Images")
     
     col_spacer, col_refresh = st.columns([9, 2], gap="small")
     with col_refresh:
         if st.button("🔄 Refresh", key="refresh_pdf_list"):
             st.rerun()
 
-    pdf_files = _list_pdf_files(save_dir)
-    if not pdf_files:
-        st.info("No PDFs found in the Data directory.")
+    data_files = _list_data_files(save_dir)
+    if not data_files:
+        st.info("No PDFs or image JSON files found in the Data directory.")
         return
 
-    for file_item in pdf_files:
+    for file_item in data_files:
         _render_file_row(file_item)
