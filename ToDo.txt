@@ -1,0 +1,5 @@
+- [ ] Make RAG features compatible with fully rendered page
+- [ ] Add another tab to manage AI related settings - AI_Manager tab
+- [ ] Add option to make response concise or more detailed - AI_Manager tab
+- [ ] Add ability to change cloud model in AI_Manager tab
+- [ ] Fix issue of resource being used when wanting to delete ChromaDB cache

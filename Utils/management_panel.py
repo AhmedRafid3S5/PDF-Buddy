@@ -127,7 +127,7 @@ def _render_file_row(file_item: dict):
     with action_col:
         if st.button("🗑️ Delete", key=f"delete_{file_item['path']}"):
             if _delete_data_file(file_item["path"], file_type):
-                st.success(f"Deleted {name}")
+                #st.success(f"Deleted {name}")
                 st.rerun()
 
 def _get_dir_mtime(path: str) -> float:

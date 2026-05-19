@@ -13,3 +13,5 @@ chromadb
 pytest
 boto3
 pymupdf
+ddgs 
+beautifulsoup4
